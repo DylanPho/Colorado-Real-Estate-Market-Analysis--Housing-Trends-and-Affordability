@@ -1,28 +1,31 @@
 import pandas as pd
 
-# Load income file
+# Load the file
 df = pd.read_csv("data/raw/S1901Income in the Past 12 Months (in 2023 Inflation-Adjusted Dollars).csv")
 
-# Show all possible labels to see what to filter
-print(df['Label (Grouping)'].dropna().unique())
+# Clean label column
+df['Label (Grouping)'] = df['Label (Grouping)'].str.replace('\xa0', '', regex=True).str.strip()
 
-# Filter for just median household income
-row = df[df['Label (Grouping)'].str.contains("Median household income", case=False, na=False)]
+# Extract the row for "Median income (dollars)"
+median_row = df[df['Label (Grouping)'] == 'Median income (dollars)']
 
-# Grab the estimate value
-income_value = row['Colorado!!Households!!Estimate'].values[0]
+if median_row.empty:
+    print("'Median income (dollars)' row not found. Check file format.")
+    exit()
 
-# Clean value (remove commas, convert to float)
-income_value = float(str(income_value).replace(',', ''))
+# Drop the label column and transpose
+median_row = median_row.drop(columns=['Label (Grouping)'])
+df_long = median_row.transpose().reset_index()
+df_long.columns = ['Metro', 'Income']
 
-# Create a DataFrame for merging later
-income_df = pd.DataFrame({
-    'Metro': ['Colorado (Statewide)'],
-    'Income': [income_value]
-})
+# Clean up Metro names (remove !!Households!!Estimate)
+df_long['Metro'] = df_long['Metro'].str.replace('!!Households!!Estimate', '', regex=False).str.strip()
 
-# Save
-income_df.to_csv("data/cleaned/income_colorado.csv", index=False)
+# Clean Income values
+df_long['Income'] = df_long['Income'].replace(',', '', regex=True).astype(float)
 
-print("Cleaned statewide income saved.")
-print(income_df)
+# Save cleaned output
+df_long.to_csv("data/cleaned/income_colorado.csv", index=False)
+
+print("Cleaned income data saved:")
+print(df_long.head())
